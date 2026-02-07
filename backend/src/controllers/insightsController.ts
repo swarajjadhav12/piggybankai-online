@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database.js';
 import { aiService } from '../services/aiService.js';
+import { InsightType, Impact } from '@prisma/client';
 
 export const createInsight = async (req: Request, res: Response) => {
   try {
@@ -9,10 +10,14 @@ export const createInsight = async (req: Request, res: Response) => {
 
     const insight = await prisma.aIInsight.create({
       data: {
-        ...insightData,
-        userId,
+        userId: String(userId),
+        type: mapToInsightType(insightData.type),
+        title: insightData.title,
+        description: insightData.description,
+        impact: mapPriorityToImpact(insightData.priority),
       },
     });
+    
 
     return res.status(201).json({
       success: true,
@@ -46,7 +51,7 @@ export const getInsights = async (req: Request, res: Response) => {
 
     const where: any = { userId };
 
-    if (type) where.type = type;
+    if (type) where.type = mapToInsightType(String(type));
     if (isRead !== undefined) where.isRead = isRead === 'true';
 
     const [insights, total] = await Promise.all([
@@ -258,6 +263,24 @@ export const markAllAsRead = async (req: Request, res: Response) => {
   }
 };
 
+// Helper function to map string to InsightType enum
+const mapToInsightType = (type: string): InsightType => {
+  const upperType = type.toUpperCase();
+  if (Object.values(InsightType).includes(upperType as InsightType)) {
+    return upperType as InsightType;
+  }
+  // Default to SAVING if type doesn't match
+  return InsightType.SAVING;
+};
+
+// Helper function to map priority number (1-5) to Impact enum
+const mapPriorityToImpact = (priority?: number): Impact => {
+  if (!priority) return Impact.MEDIUM;
+  if (priority >= 4) return Impact.HIGH;
+  if (priority >= 2) return Impact.MEDIUM;
+  return Impact.LOW;
+};
+
 export const generateInsights = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
@@ -267,10 +290,17 @@ export const generateInsights = async (req: Request, res: Response) => {
     const createdInsights = await Promise.all(
       aiInsights.map(insight =>
         prisma.aIInsight.create({
-          data: { ...insight, userId },
+          data: {
+            userId: String(userId),
+            type: mapToInsightType(insight.type),
+            title: insight.title,
+            description: insight.content, // Prisma uses 'description', not 'content'
+            impact: mapPriorityToImpact(insight.priority),
+          },
         })
       )
     );
+    
 
     return res.json({
       success: true,

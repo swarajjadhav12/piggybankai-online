@@ -205,3 +205,9 @@ export const updateProfile = async (req: Request, res: Response) => {
     });
   }
 };
+export const changePassword = async (req: Request, res: Response) => {
+  return res.status(501).json({
+    success: false,
+    error: 'Not implemented yet',
+  });
+};
