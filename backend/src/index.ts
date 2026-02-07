@@ -22,21 +22,31 @@ import chatRoutes from './routes/chat.js';
 // (env already loaded above)
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 
 // Security middleware
 app.use(helmet());
 
 // CORS configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    process.env.CORS_ORIGIN || 'http://localhost:5173'
-  ].filter(Boolean),
+  origin: (origin, callback) => {
+    // Allow mobile apps / server-to-server requests
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('CORS not allowed'));
+  },
   credentials: true,
 }));
+
 
 // Rate limiting
 const limiter = rateLimit({
@@ -258,8 +268,8 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`🚀 PiggyBank AI API server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-      console.log(`📚 API Documentation: http://localhost:${PORT}/api`);
+      console.log(`🔗 Health check: /health`);
+      console.log(`📚 API Documentation: /api`);      
     });
   } catch (error) {
     console.error('Failed to start server:', error);
