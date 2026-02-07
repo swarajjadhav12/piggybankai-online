@@ -1,73 +1,62 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { prisma } from '../config/database.js';
-import { JwtPayload, AuthenticatedRequest } from '../types/index.js';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 
-export interface AuthRequest extends Request {
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined in environment variables');
+}
+
+interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
   };
 }
 
-export const authenticateToken = async (
+export const authenticate = (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authorization token missing',
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        error: 'Access token required',
+        error: 'Invalid authorization format',
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-    
-    // Verify user still exists in database
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true },
-    });
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not found',
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
+    if (!decoded || typeof decoded !== 'object' || !decoded.id) {
       return res.status(401).json({
         success: false,
         error: 'Invalid token',
       });
     }
-    
-    if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({
-        success: false,
-        error: 'Token expired',
-      });
-    }
 
-    console.error('Auth middleware error:', error);
-    return res.status(500).json({
+    req.user = {
+      id: decoded.id as string,
+      email: decoded.email as string,
+    };
+
+    return next();
+  } catch (error) {
+    return res.status(401).json({
       success: false,
       error: 'Authentication failed',
     });
   }
-};
-
-export const generateToken = (payload: { userId: string; email: string }): string => {
-  return jwt.sign(payload, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  });
 };

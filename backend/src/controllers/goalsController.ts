@@ -1,11 +1,5 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database.js';
-import { GoalCreateSchema, GoalUpdateSchema } from '../types/index.js';
-import { z } from 'zod';
-
-const GoalIdSchema = z.object({
-  id: z.string().cuid(),
-});
 
 export const createGoal = async (req: Request, res: Response) => {
   try {
@@ -20,14 +14,14 @@ export const createGoal = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: goal,
       message: 'Goal created successfully',
     });
   } catch (error) {
     console.error('Create goal error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to create goal',
     });
@@ -40,10 +34,7 @@ export const getGoals = async (req: Request, res: Response) => {
     const { active } = req.query;
 
     const where: any = { userId };
-    
-    if (active !== undefined) {
-      where.isActive = active === 'true';
-    }
+    if (active !== undefined) where.isActive = active === 'true';
 
     const goals = await prisma.goal.findMany({
       where,
@@ -53,13 +44,13 @@ export const getGoals = async (req: Request, res: Response) => {
       ],
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: goals,
     });
   } catch (error) {
     console.error('Get goals error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to get goals',
     });
@@ -69,13 +60,17 @@ export const getGoals = async (req: Request, res: Response) => {
 export const getGoal = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const { id } = req.params;
+    const id = req.params.id;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Goal ID is required',
+      });
+    }
 
     const goal = await prisma.goal.findFirst({
-      where: {
-        id,
-        userId,
-      },
+      where: { id, userId },
     });
 
     if (!goal) {
@@ -85,13 +80,13 @@ export const getGoal = async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: goal,
     });
   } catch (error) {
     console.error('Get goal error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to get goal',
     });
@@ -101,15 +96,17 @@ export const getGoal = async (req: Request, res: Response) => {
 export const updateGoal = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const { id } = req.params;
-    const updateData = req.body;
+    const id = req.params.id;
 
-    // Check if goal exists and belongs to user
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Goal ID is required',
+      });
+    }
+
     const existingGoal = await prisma.goal.findFirst({
-      where: {
-        id,
-        userId,
-      },
+      where: { id, userId },
     });
 
     if (!existingGoal) {
@@ -119,25 +116,26 @@ export const updateGoal = async (req: Request, res: Response) => {
       });
     }
 
-    // Prepare update data
-    const dataToUpdate: any = { ...updateData };
-    if (updateData.targetDate) {
-      dataToUpdate.targetDate = new Date(updateData.targetDate);
-    }
+    const dataToUpdate = {
+      ...req.body,
+      ...(req.body.targetDate && {
+        targetDate: new Date(req.body.targetDate),
+      }),
+    };
 
     const updatedGoal = await prisma.goal.update({
       where: { id },
       data: dataToUpdate,
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: updatedGoal,
       message: 'Goal updated successfully',
     });
   } catch (error) {
     console.error('Update goal error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to update goal',
     });
@@ -147,14 +145,17 @@ export const updateGoal = async (req: Request, res: Response) => {
 export const deleteGoal = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const { id } = req.params;
+    const id = req.params.id;
 
-    // Check if goal exists and belongs to user
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Goal ID is required',
+      });
+    }
+
     const existingGoal = await prisma.goal.findFirst({
-      where: {
-        id,
-        userId,
-      },
+      where: { id, userId },
     });
 
     if (!existingGoal) {
@@ -164,17 +165,15 @@ export const deleteGoal = async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.goal.delete({
-      where: { id },
-    });
+    await prisma.goal.delete({ where: { id } });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Goal deleted successfully',
     });
   } catch (error) {
     console.error('Delete goal error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to delete goal',
     });
@@ -184,8 +183,15 @@ export const deleteGoal = async (req: Request, res: Response) => {
 export const addToGoal = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const { id } = req.params;
+    const id = req.params.id;
     const { amount } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Goal ID is required',
+      });
+    }
 
     if (!amount || amount <= 0) {
       return res.status(400).json({
@@ -194,12 +200,8 @@ export const addToGoal = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if goal exists and belongs to user
     const goal = await prisma.goal.findFirst({
-      where: {
-        id,
-        userId,
-      },
+      where: { id, userId },
     });
 
     if (!goal) {
@@ -209,15 +211,11 @@ export const addToGoal = async (req: Request, res: Response) => {
       });
     }
 
-    // Update goal saved amount
     const updatedGoal = await prisma.goal.update({
       where: { id },
-      data: {
-        saved: goal.saved + amount,
-      },
+      data: { saved: goal.saved + amount },
     });
 
-    // Create a saving record
     await prisma.saving.create({
       data: {
         amount,
@@ -227,14 +225,14 @@ export const addToGoal = async (req: Request, res: Response) => {
       },
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: updatedGoal,
-      message: `Added $${amount} to ${goal.name}`,
+      message: `Added ₹${amount} to ${goal.name}`,
     });
   } catch (error) {
     console.error('Add to goal error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to add to goal',
     });
@@ -246,10 +244,7 @@ export const getGoalProgress = async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
 
     const goals = await prisma.goal.findMany({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { userId, isActive: true },
       select: {
         id: true,
         name: true,
@@ -269,16 +264,19 @@ export const getGoalProgress = async (req: Request, res: Response) => {
       ...goal,
       progress: (goal.saved / goal.target) * 100,
       remaining: goal.target - goal.saved,
-      daysRemaining: Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+      daysRemaining: Math.ceil(
+        (new Date(goal.targetDate).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24)
+      ),
     }));
 
-    res.json({
+    return res.json({
       success: true,
       data: goalsWithProgress,
     });
   } catch (error) {
     console.error('Get goal progress error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to get goal progress',
     });
