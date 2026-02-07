@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validation.js';
 import { ExpenseCreateSchema, ExpenseUpdateSchema } from '../types/index.js';
 import { z } from 'zod';
@@ -9,9 +9,6 @@ import {
   getExpense,
   updateExpense,
   deleteExpense,
-  getExpenseCategories,
-  getRecentExpenses,
-  getExpenseAnalytics,
 } from '../controllers/expensesController.js';
 
 const router = Router();
@@ -21,14 +18,11 @@ const ExpenseIdSchema = z.object({
 });
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(authenticate);
 
 // Expense CRUD operations
 router.post('/', validateBody(ExpenseCreateSchema), createExpense);
 router.get('/', getExpenses);
-router.get('/categories', getExpenseCategories);
-router.get('/recent', getRecentExpenses);
-router.get('/analytics', getExpenseAnalytics);
 router.get('/:id', validateParams(ExpenseIdSchema), getExpense);
 router.put('/:id', validateParams(ExpenseIdSchema), validateBody(ExpenseUpdateSchema), updateExpense);
 router.delete('/:id', validateParams(ExpenseIdSchema), deleteExpense);

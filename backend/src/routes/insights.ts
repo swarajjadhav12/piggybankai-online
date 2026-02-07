@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validation.js';
 import { InsightCreateSchema, InsightUpdateSchema } from '../types/index.js';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ const InsightIdSchema = z.object({
 });
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(authenticate);
 
 // Insight operations
 router.post('/', validateBody(InsightCreateSchema), createInsight);

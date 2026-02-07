@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import {
   getDashboardData,
   getAnalytics,
@@ -8,7 +8,7 @@ import {
 const router = Router();
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(authenticate);
 
 // Dashboard data
 router.get('/', getDashboardData);

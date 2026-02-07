@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validation.js';
 import { UserRegisterSchema, UserLoginSchema } from '../types/index.js';
 import {
@@ -17,8 +17,8 @@ router.post('/register', validateBody(UserRegisterSchema), register);
 router.post('/login', validateBody(UserLoginSchema), login);
 
 // Protected routes
-router.get('/profile', authenticateToken, getProfile);
-router.put('/profile', authenticateToken, updateProfile);
-router.put('/change-password', authenticateToken, changePassword);
+router.get('/profile', authenticate, getProfile);
+router.put('/profile', authenticate, updateProfile);
+router.put('/change-password', authenticate, changePassword);
 
 export default router;

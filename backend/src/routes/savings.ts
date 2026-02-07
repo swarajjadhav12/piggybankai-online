@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validation.js';
 import { SavingCreateSchema } from '../types/index.js';
 import { z } from 'zod';
@@ -19,7 +19,7 @@ const SavingIdSchema = z.object({
 });
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(authenticate);
 
 // Saving operations
 router.post('/', validateBody(SavingCreateSchema), createSaving);
