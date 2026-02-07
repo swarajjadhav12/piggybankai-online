@@ -237,7 +237,7 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   }
 
   // Default error response
-  res.status(500).json({
+  return res.status(500).json({
     success: false,
     error: process.env.NODE_ENV === 'production' 
       ? 'Internal server error' 
