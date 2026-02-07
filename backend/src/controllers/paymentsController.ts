@@ -9,20 +9,13 @@ function toNumber(value: any): number {
 function normalizePhoneCandidates(input: string): string[] {
   if (!input) return [];
   const trimmed = String(input).trim();
-  // Keep digits only
   const digitsOnly = trimmed.replace(/\D+/g, '');
   const candidates = new Set<string>();
 
-  // Raw user input variants
   candidates.add(trimmed);
-
-  // Digits-only variant
   if (digitsOnly) candidates.add(digitsOnly);
-
-  // With + prefix
   if (digitsOnly) candidates.add(`+${digitsOnly}`);
 
-  // If 10 digits, try US-style +1 prefix
   if (digitsOnly.length === 10) {
     candidates.add(`1${digitsOnly}`);
     candidates.add(`+1${digitsOnly}`);
@@ -47,7 +40,7 @@ export const getWallet = async (req: Request, res: Response) => {
       prisma.transaction.count({ where: { receiverUserId: userId } }),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...wallet,
@@ -56,7 +49,7 @@ export const getWallet = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get wallet error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get wallet' });
+    return res.status(500).json({ success: false, error: 'Failed to get wallet' });
   }
 };
 
@@ -71,10 +64,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     const [transactions, total] = await Promise.all([
       prisma.transaction.findMany({
         where: {
-          OR: [
-            { senderUserId: userId },
-            { receiverUserId: userId },
-          ],
+          OR: [{ senderUserId: userId }, { receiverUserId: userId }],
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -82,15 +72,12 @@ export const getTransactions = async (req: Request, res: Response) => {
       }),
       prisma.transaction.count({
         where: {
-          OR: [
-            { senderUserId: userId },
-            { receiverUserId: userId },
-          ],
+          OR: [{ senderUserId: userId }, { receiverUserId: userId }],
         },
       }),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: transactions,
       pagination: {
@@ -102,7 +89,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get transactions error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get transactions' });
+    return res.status(500).json({ success: false, error: 'Failed to get transactions' });
   }
 };
 
@@ -134,10 +121,10 @@ export const deposit = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json({ success: true, data: wallet, message: 'Deposit successful' });
+    return res.status(201).json({ success: true, data: wallet, message: 'Deposit successful' });
   } catch (error) {
     console.error('Deposit error:', error);
-    res.status(500).json({ success: false, error: 'Failed to deposit' });
+    return res.status(500).json({ success: false, error: 'Failed to deposit' });
   }
 };
 
@@ -173,10 +160,10 @@ export const withdraw = async (req: Request, res: Response) => {
       },
     });
 
-    res.json({ success: true, data: updated, message: 'Withdrawal successful' });
+    return res.json({ success: true, data: updated, message: 'Withdrawal successful' });
   } catch (error) {
     console.error('Withdraw error:', error);
-    res.status(500).json({ success: false, error: 'Failed to withdraw' });
+    return res.status(500).json({ success: false, error: 'Failed to withdraw' });
   }
 };
 
@@ -207,10 +194,9 @@ export const transfer = async (req: Request, res: Response) => {
         where: {
           OR: [
             { phone: { in: candidates } },
-            ...(last10 ? [
-              { phone: { endsWith: last10 } },
-              { phone: { contains: last10 } },
-            ] : []),
+            ...(last10
+              ? [{ phone: { endsWith: last10 } }, { phone: { contains: last10 } }]
+              : []),
           ],
         },
       }),
@@ -220,7 +206,6 @@ export const transfer = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Receiver not found' });
     }
 
-    // Prevent sending to self
     if (sender?.phone && receiverUser.phone && sender.phone === receiverUser.phone) {
       return res.status(400).json({ success: false, error: 'Cannot transfer to your own phone number' });
     }
@@ -231,7 +216,9 @@ export const transfer = async (req: Request, res: Response) => {
 
     let receiverWallet = await prisma.wallet.findUnique({ where: { userId: receiverUser.id } });
     if (!receiverWallet) {
-      receiverWallet = await prisma.wallet.create({ data: { userId: receiverUser.id, balance: 0, currency } });
+      receiverWallet = await prisma.wallet.create({
+        data: { userId: receiverUser.id, balance: 0, currency },
+      });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -262,9 +249,9 @@ export const transfer = async (req: Request, res: Response) => {
       return { updatedSender, updatedReceiver, txRecord };
     });
 
-    res.json({ success: true, data: result, message: 'Transfer successful' });
+    return res.json({ success: true, data: result, message: 'Transfer successful' });
   } catch (error) {
     console.error('Transfer error:', error);
-    res.status(500).json({ success: false, error: 'Failed to transfer' });
+    return res.status(500).json({ success: false, error: 'Failed to transfer' });
   }
 };

@@ -11,7 +11,11 @@ export const chatController = {
         return res.status(400).json({ success: false, error: 'Message is required' });
       }
 
-      const result = await aiService.chat({ userId, message: message.trim(), context });
+      const result = await aiService.chat({
+        userId,
+        message: message.trim(),
+        ...(context && { context }),
+      });
 
       return res.json({ success: true, data: result });
     } catch (error: any) {
